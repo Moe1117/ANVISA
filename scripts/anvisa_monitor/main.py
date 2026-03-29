@@ -56,6 +56,7 @@ def main():
     from dou_scraper import run_dou_scraper
     from classifier import classify_batch, generate_run_summary
     from supabase_updater import process_relevant_publications, log_scrape_run
+    from ingredient_sync import sync_all_changes
     from notifier import send_alert
 
     all_publications = []
@@ -97,8 +98,8 @@ def main():
 
     logger.info(f"Relevant: {len(relevant)} | Irrelevant: {len(irrelevant)}")
 
-    # --- Step 4: Update Supabase ---
-    logger.info("Step 4: Writing to Supabase...")
+    # --- Step 4: Update Supabase (publications + changes log) ---
+    logger.info("Step 4: Writing publications to Supabase...")
     ingredient_changes = 0
     run_status = "success"
     error_msg = None
@@ -108,6 +109,18 @@ def main():
         run_status = "partial_failure"
         error_msg = str(e)
         logger.error(f"Supabase update failed: {e}")
+
+    # --- Step 4b: Sync changes to live anvisa_ingredients table ---
+    logger.info("Step 4b: Syncing to live ingredient database...")
+    sync_summary = {"total_changes": 0}
+    try:
+        sync_summary = sync_all_changes(relevant, dry_run=dry_run)
+        ingredient_changes += sync_summary["total_changes"]
+    except Exception as e:
+        logger.error(f"Ingredient sync failed: {e}")
+        if run_status == "success":
+            run_status = "partial_failure"
+        error_msg = (error_msg or "") + f" | Sync error: {e}"
 
     # Log the run itself
     if not dry_run:
