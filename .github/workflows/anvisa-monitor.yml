@@ -2,7 +2,8 @@ name: ANVISA Regulatory Monitor
 
 on:
   schedule:
-    - cron: '0 6 1 * *'
+    # Runs every Monday at 6am UTC (weekly)
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       dry_run:
